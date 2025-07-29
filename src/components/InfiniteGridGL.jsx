@@ -412,14 +412,14 @@ const ThreeJSInfiniteGrid = () => {
       />
       
       {/* Scroll position indicator */}
-      <div className="absolute bottom-8 right-8 text-white text-sm bg-black bg-opacity-50 p-4 rounded">
+      {/* <div className="absolute bottom-8 right-8 text-white text-sm bg-black bg-opacity-50 p-4 rounded">
         <div>X: {Math.round(scrollPosition.x)}</div>
         <div>Y: {Math.round(scrollPosition.y)}</div>
         {smoothScroll && <div className="text-green-400">Fast Mode ON</div>}
         <div className="text-xs text-gray-400 mt-1">
           Active: {activeMeshesRef.current.size} | Pool: {meshPoolRef.current.length}
         </div>
-      </div>
+      </div> */}
       
     </div>
   );
