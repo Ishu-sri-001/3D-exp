@@ -80,7 +80,7 @@ const ThreeJSInfiniteGrid = () => {
 
   // Mouse move handler for hover detection
   const handleMouseMove = useCallback((e) => {
-    if (!cameraRef.current || !rendererRef.current) return;
+    if (!cameraRef.current || !rendererRef.current || isDragging.current) return;
 
     const rect = rendererRef.current.domElement.getBoundingClientRect();
     const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
@@ -89,45 +89,6 @@ const ThreeJSInfiniteGrid = () => {
     mouse.current.set(x, y);
     setMousePosition({ x: e.clientX, y: e.clientY });
 
-    // Only update hover state if not currently dragging
-    if (!isDragging.current) {
-      raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-      
-      const meshes = Array.from(activeMeshesRef.current.values());
-      const intersects = raycaster.current.intersectObjects(meshes);
-
-      if (intersects.length > 0) {
-        const intersectedMesh = intersects[0].object;
-        
-        // Get item data directly from the mesh userData
-        if (intersectedMesh.userData && intersectedMesh.userData.imageIndex !== undefined) {
-          const imageData = imageSources[intersectedMesh.userData.imageIndex];
-          if (imageData) {
-            setHoverText(imageData.text);
-            setHoveredItem(intersectedMesh.userData);
-            rendererRef.current.domElement.style.cursor = 'pointer';
-            return;
-          }
-        }
-      }
-      
-      // No intersection or no valid data
-      setHoverText('');
-      setHoveredItem(null);
-      rendererRef.current.domElement.style.cursor = 'grab';
-    }
-  }, []);
-
-  // Click handler for navigation
-  const handleMeshClick = useCallback((e) => {
-    // Perform raycast at click position to find intersected mesh
-    if (!cameraRef.current || !rendererRef.current) return;
-
-    const rect = rendererRef.current.domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    mouse.current.set(x, y);
     raycaster.current.setFromCamera(mouse.current, cameraRef.current);
     
     const meshes = Array.from(activeMeshesRef.current.values());
@@ -136,15 +97,37 @@ const ThreeJSInfiniteGrid = () => {
     if (intersects.length > 0) {
       const intersectedMesh = intersects[0].object;
       
-      // Get item data directly from the mesh userData
-      if (intersectedMesh.userData && intersectedMesh.userData.imageIndex !== undefined) {
-        const imageData = imageSources[intersectedMesh.userData.imageIndex];
-        if (imageData && imageData.link) {
-          window.open(imageData.link, '_blank');
+      // Find the item data for this mesh
+      let foundItem = null;
+      activeMeshesRef.current.forEach((mesh, id) => {
+        if (mesh === intersectedMesh) {
+          const visibleItems = generateVisibleItems();
+          foundItem = visibleItems.find(item => item.id === id);
         }
+      });
+
+      if (foundItem) {
+        const imageData = imageSources[foundItem.imageIndex];
+        setHoverText(imageData.text);
+        setHoveredItem(foundItem);
+        rendererRef.current.domElement.style.cursor = 'pointer';
       }
+    } else {
+      setHoverText('');
+      setHoveredItem(null);
+      rendererRef.current.domElement.style.cursor = isDragging.current ? 'grabbing' : 'grab';
     }
   }, []);
+
+  // Click handler for navigation
+  const handleMeshClick = useCallback((e) => {
+    if (isDragging.current || !hoveredItem) return;
+
+    const imageData = imageSources[hoveredItem.imageIndex];
+    if (imageData.link) {
+      window.open(imageData.link, '_blank');
+    }
+  }, [hoveredItem]);
 
   // Smooth scroll animation loop
   useEffect(() => {
@@ -197,7 +180,6 @@ const ThreeJSInfiniteGrid = () => {
 
   const handlePointerStart = useCallback((e) => {
     isDragging.current = true;
-    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     lastPointer.current = { x: clientX, y: clientY };
@@ -224,15 +206,12 @@ const ThreeJSInfiniteGrid = () => {
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const deltaX = clientX - lastPointer.current.x;
     const deltaY = clientY - lastPointer.current.y;
-    
-    // Track if significant movement occurred
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
     const scrollMultiplier = smoothScroll ? 2.5 : 1;
 
     // Calculate drag speed for scaling
     const now = performance.now();
     const timeDelta = Math.max(now - lastScrollTime.current, 1);
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     const speed = distance / timeDelta * 16;
     setScrollSpeed(Math.min(speed * 0.1, 1));
 
@@ -299,8 +278,10 @@ const ThreeJSInfiniteGrid = () => {
   }, [smoothScroll]);
 
   const handleClick = useCallback((e) => {
-    setSmoothScroll(true);
-    handleMeshClick(e);
+    if (!isDragging.current) {
+      setSmoothScroll(true);
+      handleMeshClick(e);
+    }
   }, [handleMeshClick]);
 
   useEffect(() => {
@@ -344,8 +325,6 @@ const ThreeJSInfiniteGrid = () => {
     mesh.position.set(0, 0, 0);
     mesh.scale.set(1, 1, 1);
     mesh.visible = true;
-    // Clear userData when returning to pool
-    mesh.userData = {};
     meshPoolRef.current.push(mesh);
   }, []);
 
@@ -450,15 +429,6 @@ const ThreeJSInfiniteGrid = () => {
         mesh = getMeshFromPool(item.imageIndex);
         if (!mesh) return;
       }
-      
-      // Store item data in mesh userData for reliable hover detection
-      mesh.userData = {
-        imageIndex: item.imageIndex,
-        id: item.id,
-        actualCol: item.actualCol,
-        actualRow: item.actualRow
-      };
-      
       const finalX = item.x - scrollPosition.x;
       const finalY = -(item.y - (scrollPosition.y * item.speedMultiplier));
       mesh.position.set(finalX, finalY, 0);

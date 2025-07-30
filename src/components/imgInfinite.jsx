@@ -12,10 +12,7 @@ const ThreeJSInfiniteGrid = () => {
   const textureCache = useRef(new Map());
   const [scrollPosition, setScrollPosition] = useState({ x: 0, y: 0 });
   const [smoothScroll, setSmoothScroll] = useState(false);
-  const [scrollSpeed, setScrollSpeed] = useState(0);
-  const [hoverText, setHoverText] = useState('');
-  const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
-  const [hoveredItem, setHoveredItem] = useState(null);
+  const [scrollSpeed, setScrollSpeed] = useState(0); 
 
   // Enhanced smooth scrolling state
   const targetScrollPosition = useRef({ x: 0, y: 0 });
@@ -28,8 +25,6 @@ const ThreeJSInfiniteGrid = () => {
   const lastPointer = useRef({ x: 0, y: 0 });
   const lastScrollTime = useRef(0);
   const scrollSpeedDecayRef = useRef(null);
-  const raycaster = useRef(new THREE.Raycaster());
-  const mouse = useRef(new THREE.Vector2());
 
   // Grid configuration
   const ROWS = 5;
@@ -40,31 +35,11 @@ const ThreeJSInfiniteGrid = () => {
   const cardHeight = 100 / VISIBLE_ROWS;
 
   const imageSources = [
-    { src: '/img1.webp', text: 'Beautiful Mountain Landscape', link: 'https://example.com/mountain' },
-    { src: '/img2.jpg', text: 'Ocean Sunset View', link: 'https://example.com/sunset' },
-    { src: '/img3.jpg', text: 'City Skyline at Night', link: 'https://example.com/city' },
-    { src: '/img4.webp', text: 'Forest Adventure Trail', link: 'https://example.com/forest' },
-    { src: '/img5.webp', text: 'Desert Sand Dunes', link: 'https://example.com/desert' },
-    { src: '/img6.jpg', text: 'Tropical Beach Paradise', link: 'https://example.com/beach' },
-    { src: '/img7.jpg', text: 'Snow-capped Peaks', link: 'https://example.com/snow' },
-    { src: '/img8.webp', text: 'Urban Street Art', link: 'https://example.com/art' },
-    { src: '/img9.jpg', text: 'Peaceful Lake Reflection', link: 'https://example.com/lake' },
-    { src: '/img10.jpg', text: 'Ancient Castle Ruins', link: 'https://example.com/castle' },
-    { src: '/img11.jpg', text: 'Vibrant Flower Garden', link: 'https://example.com/garden' },
-    { src: '/img12.jpg', text: 'Starry Night Sky', link: 'https://example.com/stars' },
-    { src: '/img13.jpg', text: 'Rustic Country Road', link: 'https://example.com/road' },
-    { src: '/img14.jpg', text: 'Modern Architecture', link: 'https://example.com/architecture' },
-    { src: '/img15.jpg', text: 'Wildlife Safari Scene', link: 'https://example.com/safari' },
-    { src: '/img16.jpg', text: 'Cozy Fireplace Corner', link: 'https://example.com/cozy' },
-    { src: '/img17.jpg', text: 'Misty Morning Hills', link: 'https://example.com/hills' },
-    { src: '/img18.jpg', text: 'Abstract Color Burst', link: 'https://example.com/abstract' },
-    { src: '/img19.png', text: 'Vintage Car Collection', link: 'https://example.com/vintage' },
-    { src: '/img20.jpg', text: 'Autumn Leaf Patterns', link: 'https://example.com/autumn' },
-    { src: '/img21.jpg', text: 'Waterfall Cascade', link: 'https://example.com/waterfall' },
-    { src: '/img22.jpg', text: 'Space Nebula View', link: 'https://example.com/space' },
-    { src: '/img23.jpg', text: 'Cherry Blossom Festival', link: 'https://example.com/blossom' },
-    { src: '/img24.jpg', text: 'Industrial Design Elements', link: 'https://example.com/industrial' },
-    { src: '/img25.webp', text: 'Magical Northern Lights', link: 'https://example.com/lights' }
+    '/img1.webp', '/img2.jpg', '/img3.jpg', '/img4.webp', '/img5.webp',
+    '/img6.jpg', '/img7.jpg', '/img8.webp', '/img9.jpg', '/img10.jpg',
+    '/img11.jpg', '/img12.jpg', '/img13.jpg', '/img14.jpg', '/img15.jpg',
+    '/img16.jpg', '/img17.jpg', '/img18.jpg', '/img19.png', '/img20.jpg',
+    '/img21.jpg', '/img22.jpg', '/img23.jpg', '/img24.jpg', '/img25.webp'
   ];
 
   const getColumnSpeedMultiplier = (colIndex) => {
@@ -77,74 +52,6 @@ const ThreeJSInfiniteGrid = () => {
       default: return 1.0;
     }
   };
-
-  // Mouse move handler for hover detection
-  const handleMouseMove = useCallback((e) => {
-    if (!cameraRef.current || !rendererRef.current) return;
-
-    const rect = rendererRef.current.domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    mouse.current.set(x, y);
-    setMousePosition({ x: e.clientX, y: e.clientY });
-
-    // Only update hover state if not currently dragging
-    if (!isDragging.current) {
-      raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-      
-      const meshes = Array.from(activeMeshesRef.current.values());
-      const intersects = raycaster.current.intersectObjects(meshes);
-
-      if (intersects.length > 0) {
-        const intersectedMesh = intersects[0].object;
-        
-        // Get item data directly from the mesh userData
-        if (intersectedMesh.userData && intersectedMesh.userData.imageIndex !== undefined) {
-          const imageData = imageSources[intersectedMesh.userData.imageIndex];
-          if (imageData) {
-            setHoverText(imageData.text);
-            setHoveredItem(intersectedMesh.userData);
-            rendererRef.current.domElement.style.cursor = 'pointer';
-            return;
-          }
-        }
-      }
-      
-      // No intersection or no valid data
-      setHoverText('');
-      setHoveredItem(null);
-      rendererRef.current.domElement.style.cursor = 'grab';
-    }
-  }, []);
-
-  // Click handler for navigation
-  const handleMeshClick = useCallback((e) => {
-    // Perform raycast at click position to find intersected mesh
-    if (!cameraRef.current || !rendererRef.current) return;
-
-    const rect = rendererRef.current.domElement.getBoundingClientRect();
-    const x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
-    const y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
-
-    mouse.current.set(x, y);
-    raycaster.current.setFromCamera(mouse.current, cameraRef.current);
-    
-    const meshes = Array.from(activeMeshesRef.current.values());
-    const intersects = raycaster.current.intersectObjects(meshes);
-
-    if (intersects.length > 0) {
-      const intersectedMesh = intersects[0].object;
-      
-      // Get item data directly from the mesh userData
-      if (intersectedMesh.userData && intersectedMesh.userData.imageIndex !== undefined) {
-        const imageData = imageSources[intersectedMesh.userData.imageIndex];
-        if (imageData && imageData.link) {
-          window.open(imageData.link, '_blank');
-        }
-      }
-    }
-  }, []);
 
   // Smooth scroll animation loop
   useEffect(() => {
@@ -197,7 +104,6 @@ const ThreeJSInfiniteGrid = () => {
 
   const handlePointerStart = useCallback((e) => {
     isDragging.current = true;
-    
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     lastPointer.current = { x: clientX, y: clientY };
@@ -206,33 +112,21 @@ const ThreeJSInfiniteGrid = () => {
     // Reset velocity when starting drag
     scrollVelocity.current = { x: 0, y: 0 };
     setSmoothScroll(true);
-    
-    // Hide hover text when dragging starts
-    setHoverText('');
-    setHoveredItem(null);
-    
     e.preventDefault();
   }, []);
 
   const handlePointerMove = useCallback((e) => {
-    if (!isDragging.current) {
-      handleMouseMove(e);
-      return;
-    }
-    
+    if (!isDragging.current) return;
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
     const deltaX = clientX - lastPointer.current.x;
     const deltaY = clientY - lastPointer.current.y;
-    
-    // Track if significant movement occurred
-    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
-    
     const scrollMultiplier = smoothScroll ? 2.5 : 1;
 
     // Calculate drag speed for scaling
     const now = performance.now();
     const timeDelta = Math.max(now - lastScrollTime.current, 1);
+    const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
     const speed = distance / timeDelta * 16;
     setScrollSpeed(Math.min(speed * 0.1, 1));
 
@@ -255,7 +149,7 @@ const ThreeJSInfiniteGrid = () => {
     scrollSpeedDecayRef.current = setTimeout(() => setScrollSpeed(0), 100);
     
     e.preventDefault();
-  }, [smoothScroll, handleMouseMove]);
+  }, [smoothScroll]);
 
   const handlePointerEnd = useCallback((e) => {
     isDragging.current = false;
@@ -299,16 +193,17 @@ const ThreeJSInfiniteGrid = () => {
   }, [smoothScroll]);
 
   const handleClick = useCallback((e) => {
-    setSmoothScroll(true);
-    handleMeshClick(e);
-  }, [handleMeshClick]);
+    if (!isDragging.current) {
+      setSmoothScroll(true);
+    }
+  }, []);
 
   useEffect(() => {
     const loader = new THREE.TextureLoader();
-    imageSources.forEach((imageData, index) => {
+    imageSources.forEach((src, index) => {
       if (!textureCache.current.has(index)) {
         const texture = loader.load(
-          imageData.src,
+          src,
           () => {
             texture.minFilter = THREE.LinearFilter;
             texture.magFilter = THREE.LinearFilter;
@@ -344,8 +239,6 @@ const ThreeJSInfiniteGrid = () => {
     mesh.position.set(0, 0, 0);
     mesh.scale.set(1, 1, 1);
     mesh.visible = true;
-    // Clear userData when returning to pool
-    mesh.userData = {};
     meshPoolRef.current.push(mesh);
   }, []);
 
@@ -450,15 +343,6 @@ const ThreeJSInfiniteGrid = () => {
         mesh = getMeshFromPool(item.imageIndex);
         if (!mesh) return;
       }
-      
-      // Store item data in mesh userData for reliable hover detection
-      mesh.userData = {
-        imageIndex: item.imageIndex,
-        id: item.id,
-        actualCol: item.actualCol,
-        actualRow: item.actualRow
-      };
-      
       const finalX = item.x - scrollPosition.x;
       const finalY = -(item.y - (scrollPosition.y * item.speedMultiplier));
       mesh.position.set(finalX, finalY, 0);
@@ -515,20 +399,6 @@ const ThreeJSInfiniteGrid = () => {
         tabIndex={0}
         style={{ outline: 'none' }}
       />
-      
-      {/* Hover Text Tooltip */}
-      {hoverText && (
-        <div
-          className="fixed pointer-events-none z-50  text-white px-3 py-2 rounded-lg text-sm font-medium backdrop-blur-sm bg-black/20 border border-white/20"
-          style={{
-            left: mousePosition.x - 20,
-            top: mousePosition.y + 15,
-            transform: mousePosition.x > window.innerWidth - 200 ? 'translateX(-100%) translateX(-15px)' : 'none'
-          }}
-        >
-          {hoverText}
-        </div>
-      )}
     </div>
   );
 };
